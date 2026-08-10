@@ -1,0 +1,14 @@
+{
+    "name": "cse-schema-design",
+    "private": true,
+    "description": "Clean-schema deliverables for the CSE department backend: DDL, Sequelize models, staging DB tooling and validation.",
+    "scripts": {
+        "validate": "node validate.js",
+        "validate:crud": "node validate.js --crud"
+    },
+    "dependencies": {
+        "bcrypt": "^6.0.0",
+        "mysql2": "^3.11.0",
+        "sequelize": "^6.37.0"
+    }
+}

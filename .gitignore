@@ -1,0 +1,9 @@
+frontend/
+# real-data dumps and backups — contain live password hashes; never commit
+legacy_dump.sql
+database/
+schema-design/cse_department-data-*.sql
+schema-design/cse_department-full-*.sql
+.claude/
+# compose-level production secrets (copy from .env.example)
+.env

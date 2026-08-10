@@ -1,0 +1,92 @@
+
+# Production stack for the CSE department site (see deploy/DEPLOY.md).
+# Mirrors the old /var/www/html/cseWebsite stack: host Apache keeps proxying
+# the domain to host port ${PORT:-3000}; nginx inside routes / -> frontend and
+# /backend/ -> API root. MySQL 8 runs inside the stack (the host's MySQL 5.7
+# keeps the legacy database untouched as the rollback copy).
+#
+# First boot with an empty mysql-data volume auto-loads, in order:
+#   1. schema-design/schema.sql                          (41 tables + seeds)
+#   2. schema-design/cse_department-data-20260805-2109.sql  (migrated data — gitignored, scp it in)
+#   3. schema-design/force-password-reset.sql            (invalidates all 19 legacy hashes)
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=cse_department
+      - MYSQL_USER=cse_app
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./schema-design/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./schema-design/cse_department-data-20260805-2109.sql:/docker-entrypoint-initdb.d/02-data.sql:ro
+      - ./schema-design/force-password-reset.sql:/docker-entrypoint-initdb.d/03-invalidate.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    networks:
+      - app-network
+    # Deliberately NOT published on the host: the legacy 5.7 setup exposed
+    # root@0.0.0.0:3306 to the internet. Admin access: docker compose exec mysql mysql -u root -p
+
+  backend:
+    build:
+      context: ./userService
+    environment:
+      - NODE_ENV=production
+      - BACKEND_PORT=3001
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=cse_department
+      - DB_USER=cse_app
+      - DB_PASSWORD=${MYSQL_PASSWORD}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - EXPIRES_IN=1h
+      - REQUIRE_AUTH_WRITES=${REQUIRE_AUTH_WRITES:-false}
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ADMIN_EMAIL_PASSWORD=${ADMIN_EMAIL_PASSWORD}
+      - RESET_LINK_BASE=${RESET_LINK_BASE}
+    volumes:
+      - backend-uploads:/app/public
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - NEXT_PUBLIC_API_URL=/backend
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "${PORT:-3000}:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+    networks:
+      - app-network
+
+volumes:
+  mysql-data:
+  backend-uploads:
+
+networks:
+  app-network:
+    driver: bridge

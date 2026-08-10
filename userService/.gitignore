@@ -1,0 +1,6 @@
+.env
+/node_modules
+logs/
+public/temp/uploads/
+public/temp/image/
+combined.log
