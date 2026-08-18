@@ -37,9 +37,9 @@ echo "=== 1/3 Installing Backend Dependencies ==="
 cd "$ROOT_DIR/userService"
 npm install --omit=dev
 
-# Copy .env to userService if not already there
-if [ ! -f .env ] && [ -f "$ROOT_DIR/.env" ]; then
-  cp "$ROOT_DIR/.env" .env
+# Copy .env to userService
+if [ -f "$ROOT_DIR/.env" ]; then
+  cp -f "$ROOT_DIR/.env" "$ROOT_DIR/userService/.env"
 fi
 
 # 4. Setup Frontend
@@ -61,13 +61,14 @@ BACKEND_PORT=3001 \
 DB_HOST=${DB_HOST:-127.0.0.1} \
 DB_PORT=${DB_PORT:-3306} \
 DB_NAME=${DB_NAME:-cse_department} \
-DB_USER=${DB_USER:-${MYSQL_USER:-root}} \
-DB_PASSWORD=${DB_PASSWORD:-${MYSQL_PASSWORD}} \
-JWT_SECRET_KEY=${JWT_SECRET_KEY} \
-ADMIN_EMAIL=${ADMIN_EMAIL} \
+DB_USER=${DB_USER:-${MYSQL_USER:-cse_app}} \
+DB_PASSWORD=${DB_PASSWORD:-${MYSQL_PASSWORD:-CSE_SecurePass_2026}} \
+JWT_SECRET_KEY=${JWT_SECRET_KEY:-af8bebc33b162269aff8cd914f0bce93847549dfeb69903c62bd08b6870f299a} \
+ADMIN_EMAIL=${ADMIN_EMAIL:-webmaster.cse@nith.ac.in} \
 ADMIN_EMAIL_PASSWORD=${ADMIN_EMAIL_PASSWORD} \
 RESET_LINK_BASE=${RESET_LINK_BASE:-https://tempcse.nith.ac.in/reset-password} \
 pm2 start src/index.js --name "tempcse-backend"
+
 
 # Start frontend
 cd "$ROOT_DIR/frontend"
