@@ -7,19 +7,23 @@ echo "=================================================="
 echo " Starting CSE Department Web Stack Deployment"
 echo "=================================================="
 
-# Helper for docker compose command (supports with/without sudo)
-if command -v docker &>/dev/null && docker compose version &>/dev/null; then
-  if docker info &>/dev/null; then
-    DOCKER_CMD="docker compose"
-  else
-    DOCKER_CMD="sudo docker compose"
-  fi
+# Helper for docker compose command (supports docker compose / docker-compose / sudo)
+if docker compose version &>/dev/null; then
+  DOCKER_CMD="docker compose"
+elif sudo docker compose version &>/dev/null; then
+  DOCKER_CMD="sudo docker compose"
+elif command -v docker-compose &>/dev/null && docker-compose version &>/dev/null; then
+  DOCKER_CMD="docker-compose"
+elif command -v docker-compose &>/dev/null || sudo docker-compose version &>/dev/null; then
+  DOCKER_CMD="sudo docker-compose"
+elif docker info &>/dev/null; then
+  DOCKER_CMD="docker compose"
 else
-  echo "Error: docker compose is required but not installed or not in PATH."
-  exit 1
+  DOCKER_CMD="sudo docker compose"
 fi
 
 echo "Using Docker command: $DOCKER_CMD"
+
 
 # 1. Check for .env file
 echo "=== 1. Checking environment configuration (.env) ==="
