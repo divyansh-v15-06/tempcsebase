@@ -60,6 +60,15 @@ app.use((err, req, res, next) => {
     return res.status(err.status || 500).json(failure({}, "Something went wrong"));
 });
 
-app.listen(ServerConfig.PORT, () => {
-    Logger.info(`Server started on port ${ServerConfig.PORT} (db ${ServerConfig.DB_HOST}:${ServerConfig.DB_PORT}/${ServerConfig.DB_NAME})`);
+const db = require("./models");
+
+app.listen(ServerConfig.PORT, async () => {
+    Logger.info(`Server started on port ${ServerConfig.PORT} (db ${ServerConfig.DB_USER}@${ServerConfig.DB_HOST}:${ServerConfig.DB_PORT}/${ServerConfig.DB_NAME})`);
+    try {
+        await db.sequelize.authenticate();
+        Logger.info("Database connection established successfully.");
+    } catch (error) {
+        Logger.error("Unable to connect to the database: " + error.message);
+    }
 });
+
