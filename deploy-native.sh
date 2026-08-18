@@ -72,8 +72,8 @@ pm2 start src/index.js --name "tempcse-backend"
 # Start frontend
 cd "$ROOT_DIR/frontend"
 NODE_ENV=production \
-PORT=3000 \
-pm2 start node_modules/next/dist/bin/next --name "tempcse-frontend" -- start -p 3000
+PORT=3005 \
+pm2 start node_modules/next/dist/bin/next --name "tempcse-frontend" -- start -p 3005
 
 cd "$ROOT_DIR"
 pm2 save
@@ -84,6 +84,7 @@ echo "=================================================="
 pm2 status
 echo ""
 echo "Backend running on:  http://127.0.0.1:3001"
-echo "Frontend running on: http://127.0.0.1:3000"
+echo "Frontend running on: http://127.0.0.1:3005"
 echo ""
 echo "Next step: Configure Nginx using deploy/host-nginx-tempcse.conf"
+
