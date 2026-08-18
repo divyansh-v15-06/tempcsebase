@@ -1,0 +1,504 @@
+'use client'
+import React, { useEffect, useRef, useState } from 'react'
+import axios from 'axios'
+import toast, { Toaster } from 'react-hot-toast'
+import { saveAs } from 'file-saver'
+import { Button } from '@/components/ui/button'
+import { MdDelete, MdModeEdit } from 'react-icons/md'
+import { parse } from 'json2csv'
+import AdminModalEvents from '@/components/admin-components/Modals/adminModalEvents'
+import CSVUploadModal from '@/components/admin-components/Modals/adminCsvModal'
+import { CircularProgress } from '@mui/material'
+import EventsModal from '@/components/research-components/EventsModal'
+import FilterOptions from '@/components/people-components/filterOptions'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
+import PublicationUpdateModal from '@/components/admin-components/updateModals/publicationUpdateModal'
+import EventUpdateModal from '@/components/admin-components/updateModals/eventsUpdateModals'
+
+type Props = {}
+
+export default function ProjectsAdmin({ }: Props) {
+    const [data, setData] = useState([])
+    const [isModalOpen, setIsModalOpen] = useState(false)
+    const [isCSVModalOpen, setIsCSVModalOpen] = useState(false)
+    const [filter1, setFilter1] = useState<string>('')
+    const [filter3, setFilter3] = useState<string>('')
+    const [filter5, setFilter5] = useState<string>('')
+    const [category, setCategory] = useState([{ value: ' ', title: 'All' }])
+    const [endDate, setEndDate] = useState([{ value: ' ', title: 'All' }])
+    const [isLoading, setIsLoading] = useState(true)
+    const [startDate, setStartDate] = useState([{ value: ' ', title: 'All' }])
+    const [initialData, setInitialData] = useState({})
+    const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false)
+    const [headers, setHeaders] = useState({})
+    const tableRef = useRef<HTMLDivElement>(null)
+    const [username, setUsername] = useState('')
+    const [userId, setUserId] = useState('')
+
+    useEffect(() => {
+        // Read from sessionStorage after component mounts
+        setUsername(sessionStorage.getItem('facultyName') || '')
+        setUserId(sessionStorage.getItem('userId') || '')
+    }, []) // Empty dependency array ensures this runs only on mount
+
+    useEffect(() => {
+        // Check if we are running on the client side
+        if (typeof window !== 'undefined') {
+            const token = sessionStorage.getItem('auth')
+            setHeaders({
+                Authorization: `Bearer ${sessionStorage.getItem('access_token') as string}`,
+            })
+        }
+    }, [])
+    const fetchData = () => {
+        setIsLoading(true)
+        const urlWithParams = `${process.env.NEXT_PUBLIC_API_URL
+            }/event/get?category=${filter3.trim()}&type=${filter5.trim()}&name=${username}`
+
+        axios
+            .get(urlWithParams)
+            .then((response) => {
+                console.log('response.data.data', response.data.data)
+                setData(response.data.data)
+                setIsLoading(false)
+            })
+            .catch((error) => {
+                console.error('Error fetching data:', error)
+                setIsLoading(false)
+            })
+    }
+
+    const fetchStartDate = () => {
+        setIsLoading(true)
+        setStartDate([
+            { value: ' ', title: 'All' },
+            { value: 'conference', title: 'Conference' },
+            { value: 'workshop', title: 'Workshop' },
+            { value: 'STC', title: 'STC' },
+            { value: 'E-STC', title: 'E-STC' },
+            { value: 'GIAN', title: 'GIAN' },
+
+        ])
+    }
+
+    const fetchCategory = () => {
+        setIsLoading(true)
+
+
+        setCategory([
+
+            { value: ' ', title: 'All' },
+            { value: 'organized', title: 'Organized' },
+            { value: 'attended', title: 'Attended' },
+
+        ])
+
+    }
+
+    const fetchEndDate = () => {
+        setIsLoading(true)
+        const urlWithParams = `${process.env.NEXT_PUBLIC_API_URL}/event/endDate`
+        axios
+            .get(urlWithParams)
+            .then((response) => {
+                const fetchedYearOptions = response.data.data.map((obj) => ({
+                    value: obj,
+                    title: obj,
+                }))
+                setEndDate([
+                    { value: ' ', title: 'All' },
+                    ...fetchedYearOptions,
+                ])
+            })
+            .catch((error) => {
+                console.error('Error fetching year data:', error)
+            })
+            .finally(() => {
+                setIsLoading(false)
+            })
+    }
+
+    useEffect(() => {
+        if (username !== '') {
+            fetchData()
+            fetchStartDate()
+            fetchEndDate()
+            fetchCategory()
+        }
+    }, [username])
+
+    const handleDelete = (id) => {
+        const userConfirmed = window.confirm(
+            'Are you sure you want to delete this ? This action cannot be undone.',
+        )
+        if (!userConfirmed) {
+            return // Exit if the user cancels
+        }
+
+        axios
+            .delete(`${process.env.NEXT_PUBLIC_API_URL}/event/delete/${id}`, {
+                headers,
+            })
+            .then((response) => {
+                toast.success('Events deleted successfully')
+                fetchData()
+            })
+            .catch((error) => {
+                toast.error('Error deleting events')
+                console.error(error)
+            })
+    }
+
+    const handleUpdate = (id) => {
+        setIsUpdateModalOpen(true)
+    }
+
+    const handleExportCSV = () => {
+        const fields = [
+            'id',
+            'title',
+            'authorName',
+            'associatedFaculties',
+            'designation',
+            'academicSession',
+            'startDate',
+            'endDate',
+            'sponsoringAgency',
+            'venue',
+            'category',
+            'type',
+        ] // Customize fields as per your data
+        const opts = { fields }
+        try {
+            console.log('data', data)
+            const csv = parse(data, opts)
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+            saveAs(blob, 'events_data.csv')
+        } catch (err) {
+            console.error('Error exporting data to CSV:', err)
+        }
+    }
+    const handleUpdateSubmit = (formData, id) => {
+        console.log('id', id)
+        axios
+            .patch(
+                `${process.env.NEXT_PUBLIC_API_URL}/event/update/${id}`,
+                formData,
+                {
+                    headers,
+                },
+            )
+            .then((response) => {
+                toast.success('Events added successfully')
+                fetchData()
+                setIsModalOpen(false)
+            })
+            .catch((error) => {
+                toast.error('Error adding Event')
+                console.error(error)
+            })
+    }
+    // Handle dynamic CSV download
+    const handleDownloadTemplate = () => {
+        const inputFields =
+            'id,title,authorName,associatedFaculties,designation,academicSession,startDate,endDate,sponsoringAgency,venue,category,type,'
+        const fieldsArray = inputFields.split(',')
+
+        // Convert the fields to a CSV string
+        const csvContent = fieldsArray.join(',') + '\n'
+
+        // Create a Blob from the CSV string
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+
+        // Use file-saver to trigger the download
+        saveAs(blob, 'template.csv')
+    }
+    const handleModalSubmit = async (formData) => {
+        axios
+            .post(`${process.env.NEXT_PUBLIC_API_URL}/event`, formData, {
+                headers,
+            })
+            .then((response) => {
+                toast.success('Events added successfully')
+                fetchData()
+                setIsModalOpen(false)
+            })
+            .catch((error) => {
+                toast.error('Error adding Events')
+                console.error(error)
+            })
+    }
+
+    const handleCSVSubmit = ({ file, type }) => {
+        const formData = new FormData()
+        console.log('file', { file, type })
+        formData.append('avatar', file) // 'avatar' should match the backend field name
+
+        axios
+            .post(`${process.env.NEXT_PUBLIC_API_URL}/event/bulk`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data', // Correct Content-Type for file uploads
+                },
+            })
+            .then((response) => {
+                toast.success('CSV uploaded successfully')
+                fetchData()
+                setIsCSVModalOpen(false)
+            })
+            .catch((error) => {
+                toast.error('Error uploading CSV')
+                console.error(error)
+            })
+    }
+    return (
+        <div className='h-[92vh]'>
+            <Toaster />
+            <div className='flex justify-between items-center border-b-2 p-4'>
+                <h1 className='font-semibold text-2xl'>Events</h1>
+                <div className='flex justify-center gap-8 '>
+                    <Button
+                        onClick={() => setIsModalOpen(true)}
+                        className='bg-slate-950 text-white border-3 border rounded-3xl px-4 py-2'
+                    >
+                        Add Event
+                    </Button>
+                    {/* <Button
+                        onClick={() => setIsCSVModalOpen(true)}
+                        className='bg-slate-950 text-white border-3 border rounded-3xl px-4 py-2'
+                    >
+                        Upload CSV
+                    </Button> */}
+                    <Button
+                        onClick={handleExportCSV}
+                        className='bg-emerald-800 text-white border-3 border rounded-3xl px-4 py-2'
+                    >
+                        Export CSV
+                    </Button>
+                    {/* <Button
+                        onClick={handleDownloadTemplate}
+                        className='bg-slate-950 text-white border-3 border rounded-3xl px-4 py-2'
+                    >
+                        Download Template
+                    </Button> */}
+                    {/* <Button
+                        onClick={handleExportPDF}
+                        className='bg-slate-950 text-white border-3 border rounded-3xl px-4 py-2'
+                    >
+                        Export as PDF
+                    </Button> */}
+                </div>
+            </div>
+
+            <div className='flex flex-col lg:flex-row justify-center items-center gap-2 mt-3'>
+                <FilterOptions
+                    filterName='Category'
+                    setFilterValue={setFilter3}
+                    options={category}
+                />
+                <FilterOptions
+                    filterName='Type'
+                    setFilterValue={setFilter5}
+                    options={startDate}
+                />
+
+                <Button className='mx-4' onClick={fetchData}>
+                    Filter
+                </Button>
+            </div>
+
+            {/* <div className='font-bold text-2xl p-4 justify-center flex items-center'>
+                Uploaded Data:
+            </div> */}
+
+            <div className='flex h-full'>
+                <div className='w-full'>
+                    <div
+                        className='gap-2 w-full'
+                        id='projectsSection'
+                        ref={tableRef}
+                    >
+                        <Table
+                            isLoading={isLoading}
+                            projects={data}
+                            onDelete={handleDelete}
+                            onUpdate={handleUpdate}
+                            setInitialData={setInitialData}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <AdminModalEvents
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSubmit={handleModalSubmit}
+            />
+
+            <CSVUploadModal
+                isOpen={isCSVModalOpen}
+                onClose={() => setIsCSVModalOpen(false)}
+                onSubmit={handleCSVSubmit}
+            />
+
+            <EventUpdateModal
+                isOpen={isUpdateModalOpen}
+                onClose={() => setIsUpdateModalOpen(false)}
+                onSubmit={handleUpdateSubmit}
+                initialData={initialData}
+            />
+        </div>
+    )
+}
+function Table({ projects, isLoading, onUpdate, onDelete, setInitialData }) {
+    return (
+        <div className='font-sans relative'>
+            {isLoading ? (
+                <div className='absolute inset-0 flex items-center justify-center'>
+                    <CircularProgress color='inherit' />
+                </div>
+            ) : (
+                <div className='overflow-x-auto border rounded my-2 lg:mx-8'>
+                    <table className='border-1 rounded border border-solid border-[#dde2e6] w-full'>
+                        <thead>
+                            <tr className='text-lg bg-[#f7dcdd]'>
+                                <th className='text-nowrap p-2 text-center bg-[#272e3f] text-[#fff] border border-1 border-[#dde2e6] w-1/12'>
+                                    Sr. No.
+                                </th>
+                                <th className='text-nowrap p-2 text-center bg-[#272e3f] text-[#fff] max-w-[200px] border border-1 border-[#dde2e6]'>
+                                    Event Title
+                                </th>
+                                <th className='text-nowrap p-2 text-center bg-[#272e3f] text-[#fff] border border-1 border-[#dde2e6] w-1/12'>
+                                    Venue
+                                </th>
+                                <th className='text-nowrap p-2 text-center bg-[#272e3f] text-[#fff] border border-1 border-[#dde2e6] w-1/12'>
+                                    Category
+                                </th>
+                                <th className='text-nowrap p-2 text-center bg-[#272e3f] text-[#fff] border border-1 border-[#dde2e6] w-1/12'>
+                                    Type
+                                </th>
+                                <th className='text-nowrap p-2 text-center bg-[#272e3f]  text-[#fff] border border-1 border-[#dde2e6] '>
+                                    Start Date
+                                </th>
+                                <th className='text-nowrap p-2 text-center bg-[#272e3f]  text-[#fff] border border-1 border-[#dde2e6] '>
+                                    End Date
+                                </th>
+                                <th className='text-nowrap p-2 text-center bg-[#272e3f] text-[#fff] border border-1 border-[#dde2e6] w-1/12'>
+                                    View
+                                </th>
+                                <th className='text-nowrap p-3 text-center text-xl font-medium bg-[#272e3f] text-[#fff]'>
+                                    Actions
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {projects && projects.length > 0 ? (
+                                projects.map((item, index) => (
+                                    <tr
+                                        key={item.id}
+                                        className={
+                                            index % 2 ? 'bg-gray-300' : ''
+                                        }
+                                    >
+                                        <td className='p-2 text-center border-b border-r border-l border-solid border-black'>
+                                            {index + 1}
+                                        </td>
+                                        <td className='p-2 text-left border-b border-1 border-solid border-black'>
+                                            <span className='text-[#800000] font-semibold'>
+                                                <span className='text-[#272b40]'>
+                                                    {item.Convenor}
+                                                </span>
+                                                {item.Coordinator && ', '}
+                                                {item.Coordinator}
+                                            </span>
+                                            <span className='text-[#000] font-semibold tracking-tighter'>
+                                                {item.title && ', '}
+                                                {item.title}
+                                            </span>
+                                            <span className='text-[#0f376f] font-semibold tracking-tighter'>
+                                                {item.name && ', '}
+                                                {item.name}
+                                            </span>
+                                           
+                                            <span className='text-[#0e0707] font-semibold'>
+                                                {item.sponsoringAgency &&
+                                                    ', Sponsored by: '}
+                                                {item.sponsoringAgency}
+                                            </span>
+                                            {item?.volume && ',Vol: '}
+                                            {item?.volume}
+                                            {/* {item?.volume && ', '} */}
+                                            {item?.issue && ',Issue: '}
+                                            {item?.issue}
+                                            {/* {item?.issue && ', '} */}
+                                            {/* -------- */}
+                                            {item?.pageNo &&
+                                                item.pageNo.includes('-') &&
+                                                item.pageNo
+                                                    .split('-')
+                                                    .every(
+                                                        (part) =>
+                                                            part.trim() !== '',
+                                                    ) && (
+                                                    <>
+                                                        {',Pages: '}
+                                                        {item.pageNo}
+                                                    </>
+                                                )}
+                                        </td>
+ 
+                                        <td className='p-2 text-center border border-1 border-solid border-black'>
+                                            {item.venue}
+                                        </td>
+                                        <td className='p-2 text-center border border-1 border-solid border-black'>
+                                            {item.category}
+                                        </td>
+                                        <td className='p-2 text-center border border-1 border-solid border-black'>
+                                            {item.type}
+                                        </td>
+                                        <td className='p-2 text-center border border-1 border-solid border-black'>
+                                            {new Date(item.startDate).toLocaleDateString('en-GB')}
+                                        </td>
+                                        <td className='p-2 text-center border border-1 border-solid border-black'>
+                                            {new Date(item.endDate).toLocaleDateString('en-GB')}
+                                        </td>
+                                        
+                                        <td className='p-2 text-left border border-1 border-solid border-black'>
+                                            <EventsModal item={item} />
+                                        </td>
+                                        <td className='text-center p-3 border-b border-l border-1 border-solid border-black'>
+                                            <div className='flex justify-center gap-2'>
+                                                <button
+                                                    onClick={() =>
+                                                        onDelete(item.id)
+                                                    }
+                                                    className='p-2 bg-red-500 text-white rounded'
+                                                >
+                                                    <MdDelete />
+                                                </button>
+
+                                                <button
+                                                    onClick={() => {
+                                                        onUpdate(item.id)
+                                                        setInitialData(item)
+                                                    }}
+                                                    className='p-2 bg-[#10132b] text-white rounded'
+                                                >
+                                                    <MdModeEdit />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td className='p-4 text-center'>No data</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    )
+}

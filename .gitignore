@@ -1,9 +1,32 @@
-frontend/
-# real-data dumps and backups — contain live password hashes; never commit
-legacy_dump.sql
-database/
+# dependencies & build artifacts
+node_modules/
+*/node_modules/
+.next/
+*/.next/
+dist/
+build/
+
 schema-design/cse_department-data-*.sql
 schema-design/cse_department-full-*.sql
 .claude/
-# compose-level production secrets (copy from .env.example)
+# compose-level production secrets and backups (copy from .env.example)
 .env
+.env.*
+!.env.example
+
+# Archives and compressed bundles
+*.tar.gz
+*.tar
+*.zip
+*.tgz
+
+# Logs & temp assets
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+userService/public/temp/image/*
+!userService/public/temp/image/.gitkeep
+userService/public/temp/pdf/*
+!userService/public/temp/pdf/.gitkeep
+
