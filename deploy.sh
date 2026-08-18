@@ -7,22 +7,33 @@ echo "=================================================="
 echo " Starting CSE Department Web Stack Deployment"
 echo "=================================================="
 
-# Helper for docker compose command (supports docker compose / docker-compose / sudo)
-if docker compose version &>/dev/null; then
-  DOCKER_CMD="docker compose"
-elif sudo docker compose version &>/dev/null; then
-  DOCKER_CMD="sudo docker compose"
-elif command -v docker-compose &>/dev/null && docker-compose version &>/dev/null; then
-  DOCKER_CMD="docker-compose"
-elif command -v docker-compose &>/dev/null || sudo docker-compose version &>/dev/null; then
-  DOCKER_CMD="sudo docker-compose"
-elif docker info &>/dev/null; then
-  DOCKER_CMD="docker compose"
+# Discover absolute path of docker and docker-compose
+DOCKER_BIN=$(which docker 2>/dev/null || for p in /usr/bin/docker /usr/local/bin/docker /snap/bin/docker /usr/bin/podman; do [ -x "$p" ] && echo "$p" && break; done)
+DOCKER_COMPOSE_BIN=$(which docker-compose 2>/dev/null || for p in /usr/bin/docker-compose /usr/local/bin/docker-compose /snap/bin/docker-compose; do [ -x "$p" ] && echo "$p" && break; done)
+
+if [ -z "$DOCKER_BIN" ] && [ -z "$DOCKER_COMPOSE_BIN" ]; then
+  echo "Error: Neither 'docker' nor 'docker-compose' binary could be found on the system."
+  echo "Search PATH: $PATH"
+  exit 1
+fi
+
+# Detect working invocation (user level vs sudo with preserved PATH)
+if [ -n "$DOCKER_BIN" ] && "$DOCKER_BIN" compose version &>/dev/null; then
+  DOCKER_CMD="$DOCKER_BIN compose"
+elif [ -n "$DOCKER_COMPOSE_BIN" ] && "$DOCKER_COMPOSE_BIN" version &>/dev/null; then
+  DOCKER_CMD="$DOCKER_COMPOSE_BIN"
+elif [ -n "$DOCKER_BIN" ] && sudo env "PATH=$PATH:/usr/local/bin:/snap/bin:/usr/bin" "$DOCKER_BIN" compose version &>/dev/null; then
+  DOCKER_CMD="sudo env PATH=$PATH:/usr/local/bin:/snap/bin:/usr/bin $DOCKER_BIN compose"
+elif [ -n "$DOCKER_COMPOSE_BIN" ] && sudo env "PATH=$PATH:/usr/local/bin:/snap/bin:/usr/bin" "$DOCKER_COMPOSE_BIN" version &>/dev/null; then
+  DOCKER_CMD="sudo env PATH=$PATH:/usr/local/bin:/snap/bin:/usr/bin $DOCKER_COMPOSE_BIN"
+elif [ -n "$DOCKER_BIN" ]; then
+  DOCKER_CMD="$DOCKER_BIN compose"
 else
-  DOCKER_CMD="sudo docker compose"
+  DOCKER_CMD="$DOCKER_COMPOSE_BIN"
 fi
 
 echo "Using Docker command: $DOCKER_CMD"
+
 
 
 # 1. Check for .env file
