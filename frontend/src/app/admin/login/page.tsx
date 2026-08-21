@@ -41,6 +41,7 @@ export default function AdminLoginPage() {
             const data = await response.json()
             if (response.ok) {
                 sessionStorage.setItem('access_token', data.data.token)
+                sessionStorage.setItem('authToken', data.data.token)
                 router.push('/admin')
             } else {
                 setResponseMessage(data.message || 'Login failed. Please try again.')

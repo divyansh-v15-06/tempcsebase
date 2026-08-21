@@ -36,7 +36,7 @@ export const isAuthenticated = () => {
 
 export const isAuthenticatedADmin = () => {
   if (typeof window !== "undefined") {
-    const token = sessionStorage.getItem('authToken'); 
+    const token = sessionStorage.getItem('authToken') || sessionStorage.getItem('access_token'); 
     return !!token; 
   }
   return false;

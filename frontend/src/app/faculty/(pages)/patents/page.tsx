@@ -45,7 +45,7 @@ const options = {
 }
 
 export default function PatentsAdmin() {
-    const [userId, setUserId] = useState(sessionStorage.getItem('userId') || '')
+    const [userId, setUserId] = useState('')
     const [data, setData] = useState([])
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [initialData, setInitialData] = useState({})
@@ -53,9 +53,7 @@ export default function PatentsAdmin() {
 
     const [isCSVModalOpen, setIsCSVModalOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(true)
-    const [username, setUsername] = useState(
-        sessionStorage.getItem('facultyName') || '',
-    )
+    const [username, setUsername] = useState('')
 
     const [filter1, setFilter1] = useState<string>('')
     const [filter2, setFilter2] = useState<string>('')
